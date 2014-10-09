@@ -1,0 +1,191 @@
+#!/home/{{ unixuser }}/opt/downloader/bin/python
+
+# First, set this to work entirely in UTF-8
+# DirtyHackAlert :-)
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
+# other modules we need...
+import argparse
+import requests
+import os
+import sys
+import json
+import mimetypes
+import shutil
+
+def lookup(oldname, options):
+    # Do a lookup in the moviedb and return the result :)
+
+    print 'Searching for "' + oldname + '"...',
+    search = {"api_key":options.api_key,"language":options.language,"query":oldname}
+    r = requests.get('http://api.themoviedb.org/3/search/movie', params=search)
+
+    return(r.json())
+
+def listchoices(result):
+    # See how many results we have, make a list of the results and present user with a choice of which one to use
+
+
+    print 'found ' + str(result['total_results']) + ' results.'
+
+    for num in enumerate(result['results']):
+        if num[1]['release_date']:
+            print '[' + str(num[0]) + ']    ' + num[1]['title'] + ' (' + num[1]['release_date'].split('-')[0] + ')'
+        else:
+            print '[' + str(num[0]) + ']    ' + num[1]['title'] + ' (BAD title, do not pick me!)'
+
+    accept = 's'
+    for i in range(result['total_results']):
+        accept += str(i)
+    if result['total_results'] > 0:
+        choice = raw_input('Choose a number or \'S\' to skip: ')
+    else:
+        # choice = raw_input('\'S\' to skip: ')
+        return None
+
+    if not choice in accept:
+        print "Not a valid choice, try again"
+    else:
+        if choice == "s":
+            return None
+        else:
+            newname = result['results'][int(choice)]['title'] + ' (' + result['results'][int(choice)]['release_date'].split('-')[0] + ')'
+            return(newname)
+
+
+def prepmove(oldfile, oldpath, options):
+
+    oldname, ext = os.path.splitext(oldfile)
+    if not ismovie(oldfile, options, ext):
+        print oldfile, 'is not a movie file, skipping.'
+    else:
+        newname = listchoices(lookup(oldname, options))
+        if newname:
+            move(oldpath, options, newname, ext)
+        else:
+            choice = raw_input('No results found, Do you want to enter a search string yourself? (y/n): ')
+            if choice == 'n':
+                return None
+            elif choice == 'y':
+                searchstring = choice = raw_input('Enter search string: ')
+                newname = listchoices(lookup(searchstring, options))
+                if newname:
+                    move(oldpath, options, newname, ext)
+
+
+def move(oldpath, options, newname, ext):
+            newfile = os.path.join(options.destination, newname, newname) + ext
+            newdir = os.path.join(options.destination, newname)
+            print 'Old file: ', oldpath
+            print 'New file: ', newfile
+            choice = raw_input('Move the file? (y/n/q): ')
+            if choice == 'q':
+                sys.exit()
+            elif choice == 'n':
+                return None
+            elif choice == 'y':
+                if not os.path.exists(newdir):
+                    os.makedirs(newdir)
+
+                shutil.move(oldpath, newfile)
+
+                return("moved")
+
+
+def ismovie(oldfile, options, ext):
+    # Function to see if our file is a movie, or has an extension that we explicitly allowed
+
+    # If we set force, don't bother and just DO it.
+    if options.force:
+        return True
+
+    # If the extension is something we'd like to rename (subtitles... nfo-files...), just do it.
+    elif ext in options.extensions:
+        return True
+
+    # If the mime-type says it's a video, just do it.
+    elif mimetypes.guess_type(oldfile)[0]:
+        if mimetypes.guess_type(oldfile)[0].split('/')[0] == 'video':
+            return True
+
+    # Ahhh, we have a file we probably shouldn't move.
+    else:
+        return False
+
+
+def loadoptions():
+    # Load options from configfile and override with commandline options, if any
+    # Returns a dictionary of configuration values
+
+    home = os.path.expanduser('~')
+    candidates = [".movienamer.json","movienamer.json",".themoviedb.json","themoviedb.json"]
+    for d in [home, "/etc"]:
+        for candidate in candidates:
+            if os.path.isfile(os.path.join(d, candidate)):
+                cf = os.path.join(d, candidate)
+                config = json.load(open(cf,'r'))
+                break
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-a', '--api_key',
+        help='Your themoviedb.com api key. Get your own!')
+    parser.add_argument('-l', '--language',
+        help='The language code of the language you want your movie to be named in.',
+        default='en')
+    parser.add_argument('-d', '--destination',
+        help='The destination folder.',
+        default='.')
+    parser.add_argument('-e', '--extensions',
+        type=list,
+        help='A comma-separated list of extra file extensions that should be renamed and moved.')
+    parser.add_argument('-f', '--force',
+        help='Only makes sense if you try to rename/move a single file. If it is not recognized as a movie you can force it being processed.',
+        default=False,
+        action='store_true')
+    parser.add_argument('-r', '--recursive',
+        help='Only makes sense if you scan a folder for movies. Then it will scan this folder recursively.',
+        default=False,
+        action='store_true')
+    parser.add_argument('fileordir',
+        help='The movie file or folder with movies you want to rename. Mandatory.',
+        default='.')
+
+    parser.set_defaults(**config)
+
+    options=parser.parse_args()
+
+    return(options)
+
+def main():
+
+    options = loadoptions()
+
+    if os.path.isfile(options.fileordir):
+        oldfile = os.path.basename(options.fileordir)
+        oldpath = os.path.realpath(options.fileordir)
+        prepmove(oldfile, oldpath, options)
+
+    elif os.path.isdir(options.fileordir):
+        if not options.recursive:
+            root, dirs, files = os.walk(options.fileordir).next()
+            for oldfile in files:
+                oldpath = os.path.realpath(os.path.join(root,oldfile))
+                prepmove(oldfile, oldpath, options)
+
+        else:
+            for root, dirs, files in os.walk(options.fileordir):
+                for oldfile in files:
+                    oldpath = os.path.realpath(os.path.join(root,oldfile))
+                    prepmove(oldfile, oldpath, options)
+
+    else:
+        print options.fileordir, "doesn't seem to be a file or a directory. Exiting."
+        sys.exit()
+
+
+    return(0)
+
+if __name__ == "__main__":
+    sys.exit(main())

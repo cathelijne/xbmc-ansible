@@ -1,0 +1,126 @@
+presets:
+  tvshows-{{ xbmcuser }}:
+    configure_series:
+      from: 
+        thetvdb_favorites:
+          account_id: {{ thetvdbkey }}
+    exists_series: "{{ datapath }}/videos/TV Shows/en"
+    content_filter:
+      require:
+        - '*.mkv'
+        - '*.avi'
+        - '*.mp4'
+      reject:
+        - '*.rar'
+        - '*.wmv'
+    regexp:
+      reject:
+        - 720p-
+        - russian
+        - polish
+        - swesub
+    content_size:
+      max: 600
+      strict: False
+    thetvdb_lookup: yes
+    set:
+      path: "{{ datapath }}/.downloads"
+      movedone: "{{ datapath }}/videos/TV Shows/en/%(series_name)s/Season %(series_season)02d/"
+      content_filename: "{% raw %}{{ series_name }} {{ series_id }}{% if tvdb_ep_name %} - {{ tvdb_ep_name }} {% endif %}{% endraw %}"
+    deluge:
+      main_file_only: yes
+      user: xbmc
+      pass: xbmc
+      label: flexget{{ xbmcuser }}
+      queuetotop: yes
+      ratio: 0.00001
+      removeatratio: True
+    email:
+      from: {{ emailfrom }}
+      to: {{ emailto }}
+      smtp_host: {{ smtphost }}
+
+tasks:
+  seed-{{ xbmcuser }}:
+    manual: True
+    find:
+      regexp: .*(avi|mkv|mp4)$
+      recursive: yes
+      path: 
+        - "{{ datapath }}/videos/TV Shows/en/"
+    all_series: yes
+    email:
+      from: {{ emailfrom }}
+      to: {{ emailto }}
+      smtp_host: {{ smtphost }}
+      active: False
+ 
+  tv-{{ xbmcuser }}:
+    interval: 144 minutes
+    preset: tvshows-{{ xbmcuser }}
+    priority: 10
+    inputs:
+      - rss: http://rss.thepiratebay.org/205
+      - rss: http://ezrss.it/feed/
+      - rss: http://torrentz.eu/feed
+      - rss: http://rss.bt-chat.com/?group=3
+
+  24-{{ xbmcuser }}:
+    manual: True
+    interval: 7 days
+    preset: tvshows-{{ xbmcuser }}
+    priority: 20
+    discover:
+      what: 
+        - thetvdb_favorites: 
+            account_id: {{ thetvdbkey }}
+      from:
+        - search_rss: "http://www.ezrss.it/search/index.php?simple&show_name={% raw %}{{search_term}}i{% endraw %}&mode=rss&quality=hdtv"
+        - isohunt: tv
+        - torrentz: verified
+        - torrentz: good
+ 
+  watchlist-{{ xbmcuser }}:
+    priority: 1
+    interval: 288 minutes
+    imdb_list:
+      list: watchlist
+      user_id: {{ imdbuser }}
+    accept_all: True
+    seen: local  # We don't want accepted movies on this feed to affect actual download feed
+
+  movies-{{ xbmcuser }}:
+    priority: 10
+    interval: 288 minutes
+    discover:
+      what:
+        - emit_movie_queue: yes
+      from:
+        - isohunt: movies
+        - torrentz: good #type: movies
+    quality:
+      - hdtv+
+      - 480p+
+    content_size:
+      min: 675
+      max: 5000
+    movie_queue: yes
+    exists_movie: "{{ datapath }}/videos/Movies/"
+    set:
+      path: "{{ datapath }}/.downloads"
+      movedone: "{{ datapath }}/videos/Movies/{% raw %}{{ imdb_name }} ({{imdb_year}}{% endraw %})"
+      content_filename: "{% raw %}{{ imdb_name }} ({{imdb_year}}{% endraw %})"
+    torrent_alive: yes
+    deluge:
+      main_file_only: True
+      user: xbmc
+      pass: xbmc
+      label: flexget{{ xbmcuser }}
+      queuetotop: yes
+      ratio: 0.00001
+      removeatratio: True
+    email:
+      from: {{ emailfrom }}
+      to: {{ emailto }}
+      smtp_host: {{ smtphost }}
+

@@ -1,0 +1,23 @@
+---
+
+  - name: Install MySQL and python bindings
+    apt:  state=latest
+          pkg=mysql-client,mysql-server,python-mysqldb
+
+  - name: Start MySQL
+    service: name=mysql
+          state=started
+
+  - name: Create xbmc database user
+    mysql_user: state=present
+          name={{ xbmcuser }}
+          password=xbmc
+          priv=*.*:ALL
+
+  - name: advancedsettings.xml
+    sudo_user: '{{ unixuser }}'
+    template: src=advancedsettings.xml.j2
+          dest=/home/{{ unixuser }}/.xbmc/userdata/advancedsettings.xml
+          backup=True
+          owner={{ unixuser }}
+          group={{ unixuser }}

@@ -1,0 +1,13 @@
+---
+datapath: /media/xbmc
+emailfrom: xbmc@yourdomain.com
+emailto: xbmc@yourdomain.com
+imdbuser: imdbusername
+nvidia: True
+remote: none
+smtphost: smtp.yourprovider.com
+themoviedbapikey: UseYourOwn
+thetvdbkey: UseYourOwn
+unixuser: xbmc
+xbmcuser: xbmc
+dbhost: localhost

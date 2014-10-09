@@ -1,0 +1,7 @@
+---
+
+- hosts: xbmc-advanced
+  remote_user: vagrant
+  sudo: yes
+  roles:
+  - xbmc-advanced

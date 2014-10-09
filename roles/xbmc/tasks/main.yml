@@ -1,0 +1,45 @@
+---
+
+  - name: ensure the xbmc group exists
+    group: name={{ unixuser }}
+          state=present
+
+  - name: ensure the xbmc user exists
+    user: name={{ unixuser }}
+          group={{ unixuser }}
+          groups=adm,cdrom,floppy,sudo,audio,dip,video,plugdev,fuse
+          state=present
+          password=$6$zVMDBHF7$oPDJ.dB3Ofk/aVitK95AbTn9GS4VsoCa3ADgaM1sCTn74UNvNOXVYbvxZsX5iL46m0gQxyKA6kGmSORL97D9L.
+          shell=/bin/bash
+
+  - name: Add xbmc apt-repository
+    apt_repository: state=present
+          repo=ppa:team-xbmc/ppa
+
+  - name: Install prerequisites
+    apt:  state=latest
+          pkg=xorg,alsa-utils,pulseaudio,udisks,usbmount,ntfs-3g,upower,acpi-support
+
+  - name: Install xbmc
+    apt:  state=latest
+          pkg=xbmc
+
+  - name: configure usbmount
+    lineinfile: dest=/etc/usbmount/usbmount.conf
+          state=present
+          regexp=^FILESYSTEMS
+          line='FILESYSTEMS="ntfs vfat ext2 ext3 ext4 hfsplus"'
+
+  - name: xbmc can shutdown the machine
+    template: src=polkit.custom-actions.pkla.j2
+          dest=/var/lib/polkit-1/localauthority/50-local.d/custom-actions.pkla
+
+  - name: allow anyone to start X
+    copy: src=etc.X11.Xwrapper.config
+          dest=/etc/X11/Xwrapper.config
+
+  - name: install upstart script for xbmc
+    template: src=etc.init.xbmc.conf.j2
+          dest=/etc/init/xbmc.conf
+    notify: start xbmc
+

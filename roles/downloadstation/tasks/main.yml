@@ -1,0 +1,172 @@
+---
+  - name: Creating datadirectories - videos
+    file: state=directory
+          path={{ datapath }}/videos
+          owner={{ unixuser }}
+          group={{ unixuser }}
+
+  - name: Creating datadirectories - TV Shows
+    file: state=directory
+          path={{ datapath }}/videos/TV\ Shows
+          owner={{ unixuser }}
+          group={{ unixuser }}
+
+  - name: Creating datadirectories - TV Shows en
+    file: state=directory
+          path={{ datapath }}/videos/TV\ Shows/en
+          owner={{ unixuser }}
+          group={{ unixuser }}
+
+  - name: Creating datadirectories - Movies
+    file: state=directory
+          path={{ datapath }}/videos/Movies
+          owner={{ unixuser }}
+          group={{ unixuser }}
+
+  - name: Creating datadirectories - Music
+    file: state=directory
+          path={{ datapath }}/Music
+          owner={{ unixuser }}
+          group={{ unixuser }}
+
+  - name: Creating datadirectories - Incoming
+    file: state=directory
+          path={{ datapath }}/Incoming
+          owner={{ unixuser }}
+          group={{ unixuser }}
+
+  - name: Creating datadirectories - Incoming deluge
+    file: state=directory
+          path={{ datapath }}/Incoming/deluge
+          owner={{ unixuser }}
+          group={{ unixuser }}
+
+  - name: Creating datadirectories - Deluge downloaddir
+    file: state=directory
+          path={{ datapath }}/.downloads
+          owner={{ unixuser }}
+          group={{ unixuser }}
+
+  - name: create symlink in Downloads to running deluges...
+    file: state=link
+          src={{ datapath }}/.downloads
+          dest={{ datapath }}/Incoming/deluge/running
+
+
+
+
+
+  - name: Install deluge
+    apt:  state=latest
+          pkg=deluged,deluge-webui
+
+  - name: make sure deluge configdir exists
+    sudo: yes
+    sudo_user: '{{ unixuser }}'
+    file: state=directory
+          name=/home/{{ unixuser }}/.config/deluge
+
+  - name: copy deluge config
+    sudo: yes
+    sudo_user: '{{ unixuser }}'
+    template: src=home..config.deluge.core.conf.j2
+          dest=/home/{{ unixuser }}/.config/deluge/core.conf
+
+  - name: copy deluge web config
+    sudo: yes
+    sudo_user: '{{ unixuser }}'
+    template: src=home..config.deluge.web.conf.j2
+          dest=/home/{{ unixuser }}/.config/deluge/web.conf
+
+  - name: copy deluge auth config
+    sudo: yes
+    sudo_user: '{{ unixuser }}'
+    copy: src=home..config.deluge.auth
+          dest=/home/{{ unixuser }}/.config/deluge/auth
+
+  - name: ensure logdir exists
+    file: state=directory
+          name=/var/log/deluge
+          owner={{ unixuser }}
+          group={{ unixuser }}
+
+  - name: copy upstartscript for deluge
+    template: src=etc.init.deluged.conf.j2
+          dest=/etc/init/deluged.conf
+    notify: restart deluged
+
+  - name: copy upstartscript for deluge-web
+    template: src=etc.init.deluge-web.conf.j2
+          dest=/etc/init/deluge-web.conf
+    notify: restart deluge-web
+
+  - name: rotate deluge logs
+    copy: src=etc.logrotate.d.deluge
+          dest=/etc/logrotate.d/deluge
+
+
+
+
+
+  - name: Install flexget
+    sudo: yes
+    sudo_user: '{{ unixuser }}'
+    pip:  state=present
+          name=flexget
+          virtualenv=/home/{{ unixuser }}/opt/downloader
+          virtualenv_site_packages=yes
+
+  - name: make sure flexget configdir exists
+    sudo: yes
+    sudo_user: '{{ unixuser }}'
+    file: state=directory
+          name=/home/{{ unixuser }}/.config/flexget
+
+  - name: copy flexget config
+    sudo: yes
+    sudo_user: '{{ unixuser }}'
+    template: src=home..config.flexget.config.yml.j2
+          dest=/home/{{ unixuser }}/.config/flexget/config.yml
+
+  - name: add cronjob for flexget
+    cron: name=flexget
+          user={{ unixuser }}
+          minute=13,33,53
+          backup=yes
+          job=/home/{{ unixuser }}/opt/downloader/bin/flexget
+
+  - name: create symlink to virtualenv bindir for ease of use...
+    file: state=link
+          src=/home/{{ unixuser }}/opt/downloader/bin
+          dest=/home/{{ unixuser }}/bin
+
+
+
+
+
+  - name: Install tvnamer
+    sudo: yes
+    sudo_user: '{{ unixuser }}'
+    pip:  state=present
+          name=tvnamer
+          virtualenv=/home/{{ unixuser }}/opt/downloader
+          virtualenv_site_packages=yes
+
+  - name: copy tvnamer config
+    sudo: yes
+    sudo_user: '{{ unixuser }}'
+    template: src=home..tvnamer.json.j2
+          dest=/home/{{ unixuser }}/.tvnamer.json
+
+  - name: copy movienamer
+    sudo: yes
+    sudo_user: '{{ unixuser }}'
+    template: src=movienamer.py.j2
+          dest=/home/{{ unixuser }}/opt/downloader/bin/movienamer.py
+
+  - name: copy movienamer config
+    sudo: yes
+    sudo_user: '{{ unixuser }}'
+    template: src=home..movienamer.json.j2
+          dest=/home/{{ unixuser }}/.movienamer.json
+

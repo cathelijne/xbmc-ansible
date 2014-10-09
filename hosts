@@ -1,0 +1,12 @@
+[localhost]
+127.0.0.1
+
+[xbmc]
+192.168.255.5
+
+[downloadstation]
+192.168.255.5
+
+[xbmc-advanced]
+192.168.255.5
+
